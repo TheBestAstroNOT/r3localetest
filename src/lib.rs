@@ -43,6 +43,81 @@ pub const LANES: usize = 1;
 
 pub fn parse_keys_simd_bracketonly(){
     println!("Using size: {}", LANES);
+        let input = "[[Key1]]\nValue1\n\
+                    [[Key2]]\nValue2\n\
+                    [[UserName]]\nAlice\n\
+                    [[UserAge]]\n30\n\
+                    [[UserEmail]]\nalice@example.com\n\
+                    [[Settings]]\n\
+                      [[Theme]]\nDark\n\
+                      [[FontSize]]\n14\n\
+                    [[Logs]]\nLog entry 1\nLog entry 2\nLog entry 3\n\
+                    [[End]]\n";
+        let bytes = input.as_bytes();
+        let mut opening_matches = Vec::new();
+        let mut closing_matches = Vec::new();
+        let mut i = 0;
+
+        while i + LANES + 2 <= bytes.len() {
+            let opening_bitmask = get_bitmask(i, bytes, [Some(b'['), Some(b'['), None]);
+
+            for lane in 0..LANES {
+                if (opening_bitmask & (1 << lane)) != 0{
+                    if i + lane > 0 {
+                        if bytes[i + lane - 1] == b'\n'{
+                            opening_matches.push(i + lane + 2);
+                            let closing_bitmask = get_bitmask(i, bytes, [Some(b']'), Some(b']'), None]);
+                            for lane in 0..LANES {
+                                if (closing_bitmask & (1 << lane)) != 0 {
+                                    closing_matches.push(i + lane);
+                                }
+                            }
+                        }
+                    }
+                    else{
+                       opening_matches.push(i + lane + 2);
+                       let closing_bitmask = get_bitmask(i, bytes, [Some(b']'), Some(b']'), None]);
+                       for lane in 0..LANES {
+                            if (closing_bitmask & (1 << lane)) != 0 {
+                               closing_matches.push(i + lane);
+                           }
+                       }
+                    }
+                }
+            }
+
+            i += 1;
+        }
+
+        opening_matches.sort_unstable();
+        opening_matches.dedup();
+        closing_matches.sort_unstable();
+        closing_matches.dedup();
+
+        let mut last_close: usize = 0;
+
+        for (&open_pos, &close_pos) in opening_matches.iter().zip(closing_matches.iter()) {
+            if open_pos < close_pos && close_pos <= bytes.len() {
+                if last_close != 0 {
+                    println!("Value: {}", String::from_utf8_lossy(&bytes[last_close..open_pos - 2]));
+                }
+
+                println!("Key: {}", String::from_utf8_lossy(&bytes[open_pos..close_pos]));
+                last_close = close_pos + 2; // skip the closing "]]"
+            } else {
+                eprintln!(
+                    "Skipping invalid range: open={}, close={}, len={}",
+                    open_pos, close_pos, bytes.len()
+                );
+            }
+        }
+    if last_close < bytes.len() {
+        println!("Value: {}", String::from_utf8_lossy(&bytes[last_close..]));
+    }
+}
+
+pub fn parse_keys_simd_open_bracketonly(){
+    println!("Using size: {}", LANES);
         let input = "\
                     \n[[Key1]]\nValue1\n\
                     [[Key2]]\nValue2\n\
@@ -66,12 +141,11 @@ pub fn parse_keys_simd_bracketonly(){
                 if (opening_bitmask & (1 << lane)) != 0{
                     if i + lane > 0 && bytes[i + lane - 1] == b'\n'{
                         opening_matches.push(i + lane + 2);
-                        let closing_bitmask = get_bitmask(i, bytes, [Some(b']'), Some(b']'), None]);
-                        for lane in 0..LANES {
-                            if (closing_bitmask & (1 << lane)) != 0 {
-                                closing_matches.push(i + lane);
-                            }
+                        let mut j = 0;
+                        while bytes[i + lane + j] != b']' && bytes[i + lane + j + 1] != b']'{
+                            j+=1;
                         }
+                        closing_matches.push(i + lane + j);
                     }
                 }
             }
