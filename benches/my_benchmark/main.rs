@@ -1,11 +1,15 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-
-// Import your crate library code (assuming your crate is named `your_crate_name`)
-use r3localetest::{parse_keys_simd_bracketonly};
+use std::path::Path;
+use r3localetest::locale_system::parse_r3locale_file;
 
 fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("parse_keys_simd_bracketonly", |b| {
-        b.iter(|| parse_keys_simd_bracketonly())
+    let path = Path::new("src/example.r3l");
+
+    c.bench_function("parser", |b| {
+        b.iter(|| {
+            // Pass the Path reference to the function
+            parse_r3locale_file(path)
+        })
     });
 }
 
