@@ -10,6 +10,7 @@ readme = "README.MD"
 
 [features]
 default = ["std"]
+additional_locale_safety_checks = []
 std = []
 # See README.md for more information on using Profile-Guided Optimization.
 pgo = []
@@ -19,6 +20,7 @@ c-exports = []
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dev-dependencies]
 criterion = "0.6.0"
+tempfile = "3.10"
 
 [target.'cfg(unix)'.dev-dependencies]
 pprof = { version = "0.12", features = ["flamegraph", "criterion"] }
