@@ -5,9 +5,12 @@ use super::simd::{get_bitmask, LANES};
 use super::types::LocaleTable;
 
 //Parses a reloaded 3 localisation file and returns a LocaleTable
-pub fn parse_r3locale_file(path: &Path) -> LocaleTable{
+pub fn parse_r3locale_file(path: Option<&Path>) -> LocaleTable{
     //Initialising all variables
-    let bytes:Vec<u8> = fs::read(path).expect(&format!("Unable to locate locale file: {}", path.display()));
+     let bytes: Vec<u8> = match path {
+         Some(p) => fs::read(p).expect(&format!("Unable to locate locale file: {}", p.display())),
+         None => Vec::from(include_bytes!("../../src/bigexample.r3l") as &[u8]),
+     };
     let mut opening_matches = Vec::new();
     let mut closing_matches = Vec::new();
     let mut i = 0;
@@ -58,7 +61,7 @@ pub fn parse_r3locale_file(path: &Path) -> LocaleTable{
     opening_matches.dedup();
     closing_matches.sort_unstable();
     closing_matches.dedup();
-    
+
     //Safety check for matches
     if opening_matches.len() != closing_matches.len() {
         #[cfg(feature = "additional_locale_safety_checks")]
@@ -115,7 +118,7 @@ use std::path::Path;
     #[test]
     fn test_parsing_valid_file() {
         let path = Path::new("src/example.r3l");
-        let result = parse_r3locale_file(path);
+        let result = parse_r3locale_file(Some(path));
         let mut expected = std::collections::HashMap::new();
         expected.insert("Bye".to_string(), "Bievenue".to_string());
         expected.insert("Key2".to_string(), "Value2".to_string());
