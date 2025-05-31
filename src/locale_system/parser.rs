@@ -78,7 +78,7 @@ pub fn parse_r3locale_file(path: Option<&Path>) -> LocaleTable{
                     let value = String::from_utf8_lossy(&bytes[last_close..open_pos])
                         .trim()
                         .to_string();
-                    locale_map.insert(key.clone(), value);
+                    locale_map.insert(normalize_newlines(&key).clone(), normalize_newlines(&value));
                 }
             }
 
@@ -101,26 +101,30 @@ pub fn parse_r3locale_file(path: Option<&Path>) -> LocaleTable{
             let value = String::from_utf8_lossy(&bytes[last_close..])
                 .trim()
                 .to_string();
-            locale_map.insert(key.clone(), value);
+            locale_map.insert(normalize_newlines(&key).clone(), normalize_newlines(&value));
         } else {
-            locale_map.insert(key.clone(), String::new());
+            locale_map.insert(normalize_newlines(&key).clone(), String::new());
         }
     }
 
     LocaleTable{ entries: locale_map}
 }
 
+fn normalize_newlines(input: &str) -> String {
+    input.replace("\r\n", "\n").replace('\r', "\n")
+}
+
 #[cfg(test)]
 mod tests {
 use super::*;
 use std::path::Path;
-use assert_unordered::assert_eq_unordered;    
+use assert_unordered::assert_eq_unordered;
 
     #[test]
     fn test_parsing_valid_file() {
         let path = Path::new("src/example.r3l");
         let result = parse_r3locale_file(Some(path));
-        let mut expected = std::collections::HashMap::new();
+        let mut expected = HashMap::new();
         expected.insert("Bye".to_string(), "Bievenue".to_string());
         expected.insert("Key2".to_string(), "Value2".to_string());
         expected.insert("Hello".to_string(), "Bonjour".to_string());
@@ -128,7 +132,7 @@ use assert_unordered::assert_eq_unordered;
             "Logs".to_string(),
             "Log entry 1\nLog entry 2\nLog entry 3".to_string(),
         );
-        expected.insert(("Fin").to_string(), String::new());
+        expected.insert("Fin".to_string(), String::new());
         assert_eq_unordered!(result.entries, expected);
     }
 }
