@@ -114,6 +114,7 @@ pub fn parse_r3locale_file(path: Option<&Path>) -> LocaleTable{
 mod tests {
 use super::*;
 use std::path::Path;
+use assert_unordered::assert_eq_unordered;    
 
     #[test]
     fn test_parsing_valid_file() {
@@ -128,6 +129,6 @@ use std::path::Path;
             "Log entry 1\nLog entry 2\nLog entry 3".to_string(),
         );
         expected.insert(("Fin").to_string(), String::new());
-        assert_eq!(result.entries, expected);
+        assert_eq_unordered!(result.entries, expected);
     }
 }
