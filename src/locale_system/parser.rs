@@ -10,7 +10,7 @@ use xxhash_rust::xxh3::xxh3_64;
 pub fn parse_r3locale_file(path: Option<&Path>) -> LocaleTable{
     //Initialising all variables
      let bytes: Vec<u8> = match path {
-         Some(p) => fs::read(p).expect(&format!("Unable to locate locale file: {}", p.display())),
+         Some(p) => fs::read(p).expect("Unable to locate locale file"),
          None => Vec::from(include_bytes!("../../src/bigexample.r3l") as &[u8]),
      };
     let mut opening_matches = Vec::new();
@@ -27,10 +27,8 @@ pub fn parse_r3locale_file(path: Option<&Path>) -> LocaleTable{
     while i <= simd_end {
         let opening_bitmask = get_bitmask(i, &bytes, [Some(b'['), Some(b'['), None]);
         for lane in 0..LANES {
-            if (opening_bitmask & (1 << lane)) != 0 {
-                if i + lane == 0 || bytes[i + lane - 1] == b'\n' {
-                    opening_matches.push(i + lane);
-                }
+            if (opening_bitmask & (1 << lane)) != 0 && ( i + lane == 0 || bytes[i + lane - 1] == b'\n'){
+                opening_matches.push(i + lane);
             }
         }
 
@@ -46,10 +44,8 @@ pub fn parse_r3locale_file(path: Option<&Path>) -> LocaleTable{
 
     //Scalar search for keys
     while i < bytes_len {
-        if bytes[i] == b'[' && i >= 1 && bytes[i - 1] == b'[' {
-            if bytes[i - 2] == b'\n' {
-                opening_matches.push(i - 1);
-            }
+        if bytes[i] == b'[' && i >= 1 && bytes[i - 1] == b'[' && bytes[i - 2] == b'\n'{
+            opening_matches.push(i - 1);
         }
 
         if bytes[i] == b']' && i >= 1 && bytes[i - 1] == b']' {
@@ -79,22 +75,20 @@ pub fn parse_r3locale_file(path: Option<&Path>) -> LocaleTable{
 
     //Parsing values and keys, then adding them to a HashMap
     for (&open_pos, &close_pos) in opening_matches.iter().zip(closing_matches.iter()) {
-        if open_pos < close_pos && close_pos + 2 <= bytes_len {
-            if last_close != 0 {
-                if let Some(ref key) = last_key {
-                    let value = normalize_newlines(
-                        String::from_utf8_lossy(&bytes[last_close..open_pos])
-                            .trim()
-                    );
-                    let value_length = value.as_bytes().len() as u32;
-                    locale_map.insert(TableEntry {
-                                        key: *key,
-                                        offset,
-                                        length: value_length,
-                                    });
-                    offset += value_length;
-                    concatenated_value.push(value);
-                }
+        if (open_pos < close_pos && close_pos + 2 <= bytes_len) && last_close != 0 {
+            if let Some(ref key) = last_key {
+                let value = normalize_newlines(
+                    String::from_utf8_lossy(&bytes[last_close..open_pos])
+                        .trim()
+                );
+                let value_length = value.as_bytes().len() as u32;
+                locale_map.insert(TableEntry {
+                                    key: *key,
+                                    offset,
+                                    length: value_length,
+                                });
+                offset += value_length;
+                concatenated_value.push(value);
             }
 
             let key = xxh3_64(normalize_newlines(
@@ -105,10 +99,7 @@ pub fn parse_r3locale_file(path: Option<&Path>) -> LocaleTable{
             last_key = Some(key);
             last_close = close_pos + 2;
         } else {
-            panic!(
-                "Skipping invalid range: open={}, close={}, bytes_len={}",
-                open_pos, close_pos, bytes_len
-            );
+            panic!("Skipping invalid range: open={open_pos}, close={close_pos}, bytes_len={bytes_len}");
         }
     }
 
