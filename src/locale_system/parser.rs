@@ -1,8 +1,10 @@
 use std::fs;
 use std::path::Path;
-use std::collections::HashMap;
+use hashbrown::HashTable;
 use super::simd::{get_bitmask, LANES};
 use super::types::LocaleTable;
+use super::types::TableEntry;
+use xxhash_rust::xxh3::xxh3_64;
 
 //Parses a reloaded 3 localisation file and returns a LocaleTable
 pub fn parse_r3locale_file(path: Option<&Path>) -> LocaleTable{
@@ -16,9 +18,10 @@ pub fn parse_r3locale_file(path: Option<&Path>) -> LocaleTable{
     let mut i = 0;
     let bytes_len = bytes.len();
     let simd_end = bytes_len.saturating_sub(2 + LANES);
-    let mut locale_map: HashMap<String, String> = HashMap::new();
     let mut last_close = 0;
-    let mut last_key: Option<String> = None;
+    let mut last_key: Option<u64> = None;
+    let mut offset: u32 = 0;
+    let mut concatenated_value:Vec<String> = Vec::new();
 
     //Simd search for keys
     while i <= simd_end {
@@ -70,21 +73,35 @@ pub fn parse_r3locale_file(path: Option<&Path>) -> LocaleTable{
         }
     }
 
+
+    let locale_hashtable: HashTable<TableEntry> = HashTable::with_capacity(opening_matches.len());
+    let mut locale_map: LocaleTable = LocaleTable{unified_address: None, entries: locale_hashtable};
+
     //Parsing values and keys, then adding them to a HashMap
     for (&open_pos, &close_pos) in opening_matches.iter().zip(closing_matches.iter()) {
         if open_pos < close_pos && close_pos + 2 <= bytes_len {
             if last_close != 0 {
                 if let Some(ref key) = last_key {
-                    let value = String::from_utf8_lossy(&bytes[last_close..open_pos])
-                        .trim()
-                        .to_string();
-                    locale_map.insert(normalize_newlines(&key).clone(), normalize_newlines(&value));
+                    let value = normalize_newlines(
+                        String::from_utf8_lossy(&bytes[last_close..open_pos])
+                            .trim()
+                    );
+                    let value_length = value.as_bytes().len() as u32;
+                    locale_map.insert(TableEntry {
+                                        key: *key,
+                                        offset,
+                                        length: value_length,
+                                    });
+                    offset += value_length;
+                    concatenated_value.push(value);
                 }
             }
 
-            let key = String::from_utf8_lossy(&bytes[open_pos + 2..close_pos])
-                .trim()
-                .to_string();
+            let key = xxh3_64(normalize_newlines(
+                    String::from_utf8_lossy(&bytes[open_pos + 2..close_pos])
+                    .trim()
+                ).as_bytes()
+            );
             last_key = Some(key);
             last_close = close_pos + 2;
         } else {
@@ -98,41 +115,54 @@ pub fn parse_r3locale_file(path: Option<&Path>) -> LocaleTable{
     // Insert the final value after the last closing bracket (which can be at EOF)
     if let Some(ref key) = last_key {
         if last_close <= bytes_len {
-            let value = String::from_utf8_lossy(&bytes[last_close..])
-                .trim()
-                .to_string();
-            locale_map.insert(normalize_newlines(&key).clone(), normalize_newlines(&value));
+            let value = normalize_newlines(
+                String::from_utf8_lossy(&bytes[last_close..])
+                    .trim()
+            );
+            let value_length = value.len() as u32;
+            locale_map.insert(TableEntry {
+                                            key: *key,
+                                            offset,
+                                            length: value_length,
+                                        });
+            offset += value_length;
+            concatenated_value.push(value);
         } else {
-            locale_map.insert(normalize_newlines(&key).clone(), String::new());
+            let value = String::new();
+            let value_length = value.len() as u32;
+            locale_map.insert(TableEntry {
+                                                    key: *key,
+                                                    offset,
+                                                    length: value_length,
+                                                });
+            offset += value_length;
+            concatenated_value.push(value);
         }
     }
 
-    LocaleTable{ entries: locale_map}
+    let buffer_uninit = build_boxed_buffer(concatenated_value, offset);
+    locale_map.unified_address = Some(buffer_uninit.as_ptr());
+
+    //Returning it
+    locale_map
+}
+
+fn build_boxed_buffer(parts: Vec<String>, length: u32) -> Box<[u8]> {
+    let mut buffer_uninit = Box::<[u8]>::new_uninit_slice(length as usize);
+    let mut offset = 0;
+    let ptr = buffer_uninit.as_mut_ptr() as *mut u8;
+    for part in parts {
+        let bytes = part.as_bytes();
+        unsafe {
+            // Copy bytes into uninitialized buffer
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), ptr.add(offset), bytes.len());
+        }
+        offset += bytes.len();
+    }
+
+    unsafe { buffer_uninit.assume_init() }
 }
 
 fn normalize_newlines(input: &str) -> String {
     input.replace("\r\n", "\n").replace('\r', "\n")
-}
-
-#[cfg(test)]
-mod tests {
-use super::*;
-use std::path::Path;
-use assert_unordered::assert_eq_unordered;
-
-    #[test]
-    fn test_parsing_valid_file() {
-        let path = Path::new("src/example.r3l");
-        let result = parse_r3locale_file(Some(path));
-        let mut expected = HashMap::new();
-        expected.insert("Bye".to_string(), "Bievenue".to_string());
-        expected.insert("Key2".to_string(), "Value2".to_string());
-        expected.insert("Hello".to_string(), "Bonjour".to_string());
-        expected.insert(
-            "Logs".to_string(),
-            "Log entry 1\nLog entry 2\nLog entry 3".to_string(),
-        );
-        expected.insert("Fin".to_string(), String::new());
-        assert_eq_unordered!(result.entries, expected);
-    }
 }

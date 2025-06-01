@@ -48,3 +48,5 @@ harness = false
 
 [dependencies]
 assert_unordered = "0.3.5"
+hashbrown = "0.15.3"
+xxhash-rust = { version = "0.8.15", features = ["xxh3"] }
