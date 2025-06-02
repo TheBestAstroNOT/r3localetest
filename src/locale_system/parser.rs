@@ -11,7 +11,7 @@ pub fn parse_r3locale_file(path: Option<&Path>) -> LocaleTable{
     //Initialising all variables
      let bytes: Vec<u8> = match path {
          Some(p) => fs::read(p).expect("Unable to locate locale file"),
-         None => Vec::from(include_bytes!("../../src/bigexample.r3l") as &[u8]),
+         None => Vec::from(include_bytes!("../../src/example.r3l") as &[u8]),
      };
     let mut opening_matches = Vec::new();
     let mut closing_matches = Vec::new();
@@ -19,9 +19,9 @@ pub fn parse_r3locale_file(path: Option<&Path>) -> LocaleTable{
     let bytes_len = bytes.len();
     let simd_end = bytes_len.saturating_sub(2 + LANES);
     let mut last_close = 0;
-    let mut last_key: Option<u64> = None;
+    let mut last_key: Option<Vec<u8>> = None;
     let mut offset: u32 = 0;
-    let mut concatenated_value:Vec<String> = Vec::new();
+    let mut concatenated_value:Vec<Vec<u8>> = Vec::new();
 
     //Simd search for keys
     while i <= simd_end {
@@ -70,33 +70,31 @@ pub fn parse_r3locale_file(path: Option<&Path>) -> LocaleTable{
     }
 
 
-    let locale_hashtable: HashTable<TableEntry> = HashTable::with_capacity(opening_matches.len());
-    let mut locale_map: LocaleTable = LocaleTable{unified_address: None, entries: locale_hashtable};
+    let mut locale_hashtable: HashTable<TableEntry> = HashTable::with_capacity(opening_matches.len());
 
     //Parsing values and keys, then adding them to a HashMap
     for (&open_pos, &close_pos) in opening_matches.iter().zip(closing_matches.iter()) {
-        if (open_pos < close_pos && close_pos + 2 <= bytes_len) && last_close != 0 {
-            if let Some(ref key) = last_key {
-                let value = normalize_newlines(
-                    String::from_utf8_lossy(&bytes[last_close..open_pos])
-                        .trim()
-                );
-                let value_length = value.as_bytes().len() as u32;
-                locale_map.insert(TableEntry {
-                                    key: *key,
-                                    offset,
-                                    length: value_length,
-                                });
-                offset += value_length;
-                concatenated_value.push(value);
+        if (open_pos < close_pos && close_pos + 2 <= bytes_len) {
+            if last_close != 0{
+                if let Some(ref key) = last_key {
+                let value_slice:&[u8] = &bytes[last_close..open_pos];
+                if str::from_utf8(value_slice).is_ok(){
+                    let value = std::str::from_utf8(value_slice).expect("If this error message appeared, something is seriously broken!").replace("\r\n", "\n").replace('\r', "\n").trim().as_bytes().to_vec();
+                    let value_length = value.len() as u32;
+                                    insert(&mut locale_hashtable, key.to_owned(), offset, value_length);
+                                    offset += value_length;
+                                    concatenated_value.push(value);
+                }
+                else{
+                    panic!("Invalid UTF-8 characters in value");
+                }
             }
-
-            let key = xxh3_64(normalize_newlines(
-                    String::from_utf8_lossy(&bytes[open_pos + 2..close_pos])
-                    .trim()
-                ).as_bytes()
-            );
-            last_key = Some(key);
+        }
+            let key_slice = &bytes[open_pos + 2..close_pos];
+            if str::from_utf8(key_slice).is_ok(){
+                let key = std::str::from_utf8(key_slice).expect("If this error message appeared, something is seriously broken!").replace("\r\n", "\n").replace('\r', "\n").trim().as_bytes().to_owned();
+                last_key = Some(key);
+            }
             last_close = close_pos + 2;
         } else {
             panic!("Skipping invalid range: open={open_pos}, close={close_pos}, bytes_len={bytes_len}");
@@ -106,44 +104,41 @@ pub fn parse_r3locale_file(path: Option<&Path>) -> LocaleTable{
     // Insert the final value after the last closing bracket (which can be at EOF)
     if let Some(ref key) = last_key {
         if last_close <= bytes_len {
-            let value = normalize_newlines(
-                String::from_utf8_lossy(&bytes[last_close..])
-                    .trim()
-            );
-            let value_length = value.len() as u32;
-            locale_map.insert(TableEntry {
-                                            key: *key,
-                                            offset,
-                                            length: value_length,
-                                        });
-            offset += value_length;
-            concatenated_value.push(value);
+            let value_slice:&[u8] = &bytes[last_close..];
+            if str::from_utf8(value_slice).is_ok(){
+                let value = std::str::from_utf8(value_slice).expect("If this error message appeared, something is seriously broken!").replace("\r\n", "\n").replace('\r', "\n").trim().as_bytes().to_vec();
+                let value_length = value.len() as u32;
+                                insert(&mut locale_hashtable, key.to_owned(), offset, value_length);
+                                offset += value_length;
+                                concatenated_value.push(value);
+            }
+            else{
+                panic!("Invalid UTF-8 characters in value");
+            }
         } else {
-            let value = String::new();
+            let value = String::new().as_bytes().to_vec();
             let value_length = value.len() as u32;
-            locale_map.insert(TableEntry {
-                                                    key: *key,
-                                                    offset,
-                                                    length: value_length,
-                                                });
+            insert(&mut locale_hashtable, key.to_owned(), offset, value_length);
             offset += value_length;
             concatenated_value.push(value);
         }
     }
 
-    let buffer_uninit = build_boxed_buffer(concatenated_value, offset);
-    locale_map.unified_address = Some(buffer_uninit.as_ptr());
-
     //Returning it
-    locale_map
+    LocaleTable{unified_box: build_boxed_buffer(concatenated_value, offset), entries: locale_hashtable}
 }
 
-fn build_boxed_buffer(parts: Vec<String>, length: u32) -> Box<[u8]> {
+pub fn insert(table: &mut HashTable<TableEntry>, key: Vec<u8>, offset: u32, length: u32){
+    let hash = xxh3_64(&key);
+    table.insert_unique(hash, TableEntry{key: hash, offset, length}, move |e: &TableEntry| { e.key });
+}
+
+fn build_boxed_buffer(parts: Vec<Vec<u8>>, length: u32) -> Box<[u8]> {
     let mut buffer_uninit = Box::<[u8]>::new_uninit_slice(length as usize);
     let mut offset = 0;
     let ptr = buffer_uninit.as_mut_ptr() as *mut u8;
     for part in parts {
-        let bytes = part.as_bytes();
+        let bytes = part;
         unsafe {
             // Copy bytes into uninitialized buffer
             std::ptr::copy_nonoverlapping(bytes.as_ptr(), ptr.add(offset), bytes.len());
@@ -152,8 +147,4 @@ fn build_boxed_buffer(parts: Vec<String>, length: u32) -> Box<[u8]> {
     }
 
     unsafe { buffer_uninit.assume_init() }
-}
-
-fn normalize_newlines(input: &str) -> String {
-    input.replace("\r\n", "\n").replace('\r', "\n")
 }
