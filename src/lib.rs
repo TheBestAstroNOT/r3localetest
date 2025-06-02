@@ -1,3 +1,3 @@
 #![feature(portable_simd)]
-pub mod locale_system;
 mod exports;
+pub mod locale_system;

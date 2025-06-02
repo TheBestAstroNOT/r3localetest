@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use r3localetest::locale_system::parse_r3locale_file;
 
 fn criterion_benchmark(c: &mut Criterion) {
