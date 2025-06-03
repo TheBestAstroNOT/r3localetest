@@ -8,12 +8,18 @@ use std::path::Path;
 use xxhash_rust::xxh3::xxh3_64;
 
 //Parses a reloaded 3 localisation file and returns a LocaleTable
-pub fn parse_r3locale_file(path: Option<&Path>) -> LocaleTable {
+pub fn parse_r3locale_file(path: Option<&Path>) -> Result<LocaleTable, ParseR3Error> {
     let bytes: Vec<u8> = match path {
         Some(p) => fs::read(p).expect("Unable to locate locale file"),
         None => Vec::from(include_bytes!("../../src/example.r3l") as &[u8]),
     };
-    let sanitised_bytes = sanitize_r3_locale_file(&*bytes);
+    let sanitised_bytes: Box<[u8]> = match sanitize_r3_locale_file(&*bytes) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("Error sanitizing file: {:?}", e);
+            return Err(e);
+        }
+    };
     let opening_brackets_matches_initial: Vec<usize> =
         memmem::find_iter(&sanitised_bytes, b"[[").collect();
     let mut opening_brackets_matches_final: Vec<usize> =
@@ -29,10 +35,10 @@ pub fn parse_r3locale_file(path: Option<&Path>) -> LocaleTable {
                 if let Some(value_open_pos) = memchr(b'\n', &sanitised_bytes[item + close_pos..]) {
                     value_start.push(item + close_pos + value_open_pos);
                 } else {
-                    panic!("No value found for key!")
+                    return Err(ParseR3Error::KeyValueMismatch);
                 }
             } else {
-                panic!("No closing bracket found!");
+                return Err(ParseR3Error::BracketMismatch);
             }
         }
     }
@@ -74,10 +80,10 @@ pub fn parse_r3locale_file(path: Option<&Path>) -> LocaleTable {
     }
     concatenated_value.shrink_to_fit();
 
-    LocaleTable {
+    Ok(LocaleTable {
         unified_box: concatenated_value.into_boxed_slice(),
         entries: locale_hash_table,
-    }
+    })
 }
 
 pub fn insert_into_hashtable(
@@ -98,8 +104,18 @@ pub fn insert_into_hashtable(
     );
 }
 
+#[derive(Debug)]
+pub enum ParseR3Error {
+    FileNotFound,
+    KeyValueMismatch,
+    BracketMismatch,
+    InvalidUTF8,
+}
+
 #[test]
 fn run() {
-    let table = parse_r3locale_file(None);
-    table.show_all_entries();
+    match parse_r3locale_file(None) {
+        Ok(table) => table.show_all_entries(),
+        Err(e) => panic!("Parsing failed: {:?}", e),
+    }
 }

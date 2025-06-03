@@ -1,8 +1,9 @@
+use crate::locale_system::parser::ParseR3Error;
 use memchr::{memchr, memchr_iter};
 
-pub fn sanitize_r3_locale_file(file: &[u8]) -> Box<[u8]> {
+pub fn sanitize_r3_locale_file(file: &[u8]) -> Result<Box<[u8]>, ParseR3Error> {
     if !std::str::from_utf8(&file).is_ok() {
-        panic!("Invalid UTF-8 characters found!");
+        return Err(ParseR3Error::InvalidUTF8);
     }
     let file_len = file.len();
     let mut temp_file = Vec::with_capacity(file_len);
@@ -62,5 +63,5 @@ pub fn sanitize_r3_locale_file(file: &[u8]) -> Box<[u8]> {
         final_file.extend_from_slice(&temp_file[last_pos..]);
     }
 
-    final_file.into_boxed_slice()
+    Ok(final_file.into_boxed_slice())
 }
