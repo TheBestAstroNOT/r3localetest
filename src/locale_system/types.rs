@@ -29,7 +29,6 @@ impl LocaleTable {
 
     pub fn find_entry(&self, key: &[u8]) -> Option<&str> {
         let hash = xxh3_64(key);
-        println!("{}", hash);
         self.entries
             .find(hash, |entry| entry.key == hash)
             .and_then(|entry| {

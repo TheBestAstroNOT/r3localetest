@@ -7,18 +7,19 @@ use std::fs;
 use std::path::Path;
 use xxhash_rust::xxh3::xxh3_64;
 
-//Parses a reloaded 3 localisation file and returns a LocaleTable
 pub fn parse_r3locale_file(path: Option<&Path>) -> Result<LocaleTable, ParseR3Error> {
     let bytes: Vec<u8> = match path {
         Some(p) => fs::read(p).expect("Unable to locate locale file"),
         None => Vec::from(include_bytes!("../../src/example.r3l") as &[u8]),
     };
-    let sanitised_bytes: Box<[u8]> = match sanitize_r3_locale_file(&*bytes) {
+    parse_r3locale_bytes(&bytes)
+}
+
+//Parses a reloaded 3 localisation file and returns a LocaleTable
+pub fn parse_r3locale_bytes(bytes: &[u8]) -> Result<LocaleTable, ParseR3Error> {
+    let sanitised_bytes: Box<[u8]> = match sanitize_r3_locale_file(bytes) {
         Ok(b) => b,
-        Err(e) => {
-            eprintln!("Error sanitizing file: {:?}", e);
-            return Err(e);
-        }
+        Err(e) => return Err(e),
     };
     let opening_brackets_matches_initial: Vec<usize> =
         memmem::find_iter(&sanitised_bytes, b"[[").collect();
@@ -112,10 +113,44 @@ pub enum ParseR3Error {
     InvalidUTF8,
 }
 
-#[test]
-fn run() {
-    match parse_r3locale_file(None) {
-        Ok(table) => table.show_all_entries(),
-        Err(e) => panic!("Parsing failed: {:?}", e),
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_and_find_entry() {
+        let sample =
+            b"[[example_key]]hiiii\nexample_value\n##BYEE\n[[another_key]]\nanother_value\n";
+        let table = parse_r3locale_bytes(sample).expect("Parse failed");
+
+        let val = table.find_entry(b"example_key");
+        assert_eq!(val, Some("example_value"));
+
+        let val2 = table.find_entry(b"another_key");
+        assert_eq!(val2, Some("another_value"));
+
+        let missing = table.find_entry(b"missing");
+        assert_eq!(missing, None);
+    }
+
+    #[test]
+    fn test_invalid_utf8() {
+        let sample = b"[[bad_key]]\n\xFF\xFE\xFD\n";
+        let result = parse_r3locale_bytes(sample);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_key_value_mismatch() {
+        let sample = b"[[only_key]]"; // no value
+        let result = parse_r3locale_bytes(sample);
+        assert!(matches!(result, Err(ParseR3Error::KeyValueMismatch)));
+    }
+
+    #[test]
+    fn test_bracket_mismatch() {
+        let sample = b"[[no_close\nvalue here\n";
+        let result = parse_r3locale_bytes(sample);
+        assert!(matches!(result, Err(ParseR3Error::BracketMismatch)));
     }
 }
