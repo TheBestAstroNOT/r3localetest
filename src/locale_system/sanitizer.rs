@@ -3,7 +3,7 @@ use memchr::{memchr, memchr_iter};
 
 pub fn sanitize_r3_locale_file(file: &[u8]) -> Result<Box<[u8]>, ParseR3Error> {
     if !std::str::from_utf8(&file).is_ok() {
-        return Err(ParseR3Error::InvalidUTF8);
+        return Err(ParseR3Error::InvalidUTF8Value);
     }
     let file_len = file.len();
     let mut temp_file = Vec::with_capacity(file_len);

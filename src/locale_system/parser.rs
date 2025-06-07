@@ -106,11 +106,15 @@ pub fn insert_into_hashtable(
 }
 
 #[derive(Debug)]
+#[repr(C)]
 pub enum ParseR3Error {
+    Normal,
     FileNotFound,
     KeyValueMismatch,
     BracketMismatch,
-    InvalidUTF8,
+    InvalidUTF8Value,
+    InvalidUTF8Path,
+    NullPathProvided,
 }
 
 #[cfg(test)]
