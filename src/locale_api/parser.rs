@@ -7,16 +7,11 @@ use std::fs;
 use std::path::Path;
 use xxhash_rust::xxh3::xxh3_64;
 
-pub fn parse_r3locale_file(path: Option<&Path>) -> Result<LocaleTable, ParseR3Error> {
-    let bytes: Vec<u8> = match path {
-        Some(p) => {
-            if p.exists() {
-                fs::read(p).expect("Unexpected error while reading locale file");
-            }
-            return Err(ParseR3Error::FileNotFound);
-        }
-        None => Vec::from(include_bytes!("../../src/example.r3l") as &[u8]),
-    };
+pub fn parse_r3locale_file(path: &Path) -> Result<LocaleTable, ParseR3Error> {
+    if !path.exists() {
+        return Err(ParseR3Error::FileNotFound);
+    }
+    let bytes = fs::read(path).map_err(|_| ParseR3Error::FailedToRead)?;
     parse_r3locale_bytes(&bytes)
 }
 

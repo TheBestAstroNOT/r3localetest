@@ -1,7 +1,4 @@
-#![feature(portable_simd)]
-mod exports;
 pub mod locale_api;
-
 pub use locale_api::AllocationResult;
 pub use locale_api::FindEntryError;
 pub use locale_api::FindEntryResult;
@@ -11,3 +8,4 @@ pub use locale_api::free_locale_table;
 pub use locale_api::get_entry;
 pub use locale_api::get_locale_table;
 pub use locale_api::get_locale_table_rust;
+pub use locale_api::parser::parse_r3locale_bytes;

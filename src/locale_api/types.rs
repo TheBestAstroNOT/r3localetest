@@ -31,7 +31,7 @@ pub struct FindEntryResult {
     pub allocation_state: FindEntryError,
 }
 
-pub fn get_locale_table_rust(path: Option<&Path>) -> Result<LocaleTable, ParseR3Error> {
+pub fn get_locale_table_rust(path: &Path) -> Result<LocaleTable, ParseR3Error> {
     parse_r3locale_file(path)
 }
 
@@ -55,7 +55,7 @@ pub extern "C" fn get_locale_table(path: *const c_char) -> AllocationResult {
         }
     };
 
-    match parse_r3locale_file(Some(Path::new(path_str))) {
+    match parse_r3locale_file(Path::new(path_str)) {
         Ok(table) => AllocationResult {
             table: Box::into_raw(Box::new(table)),
             allocation_state: ParseR3Error::Normal,
@@ -153,6 +153,7 @@ impl LocaleTable {
 pub enum ParseR3Error {
     Normal,
     FileNotFound,
+    FailedToRead,
     KeyValueMismatch,
     BracketMismatch,
     InvalidUTF8Value,
