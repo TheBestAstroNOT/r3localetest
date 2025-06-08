@@ -1,5 +1,4 @@
-use crate::locale_system::parse_r3locale_file;
-use crate::locale_system::parser::ParseR3Error;
+use super::parser::parse_r3locale_file;
 use hashbrown::HashTable;
 use std::ffi::CStr;
 use std::os::raw::c_char;
@@ -30,6 +29,10 @@ pub struct FindEntryResult {
     pub value_ptr: *const u8,
     pub value_len: usize,
     pub allocation_state: FindEntryError,
+}
+
+pub fn get_locale_table_rust(path: Option<&Path>) -> Result<LocaleTable, ParseR3Error> {
+    parse_r3locale_file(path)
 }
 
 #[unsafe(no_mangle)]
@@ -65,7 +68,7 @@ pub extern "C" fn get_locale_table(path: *const c_char) -> AllocationResult {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn locale_table_find_utf8(
+pub extern "C" fn get_entry(
     table: *const LocaleTable,
     key_ptr: *const u8,
     key_len: usize,
@@ -96,21 +99,12 @@ pub extern "C" fn locale_table_find_utf8(
             }
         }
     } else {
-        return FindEntryResult {
+        FindEntryResult {
             value_ptr: std::ptr::null(),
             value_len: 0,
             allocation_state: FindEntryError::NoEntryFound,
-        };
+        }
     }
-}
-
-#[derive(Debug)]
-#[repr(C)]
-pub enum FindEntryError {
-    Normal,
-    NullTable,
-    NullKeyPtr,
-    NoEntryFound,
 }
 
 #[unsafe(no_mangle)]
@@ -152,4 +146,25 @@ impl LocaleTable {
                 str::from_utf8(slice).ok()
             })
     }
+}
+
+#[derive(Debug)]
+#[repr(C)]
+pub enum ParseR3Error {
+    Normal,
+    FileNotFound,
+    KeyValueMismatch,
+    BracketMismatch,
+    InvalidUTF8Value,
+    InvalidUTF8Path,
+    NullPathProvided,
+}
+
+#[derive(Debug)]
+#[repr(C)]
+pub enum FindEntryError {
+    Normal,
+    NullTable,
+    NullKeyPtr,
+    NoEntryFound,
 }

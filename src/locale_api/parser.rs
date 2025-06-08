@@ -1,6 +1,6 @@
 use super::sanitizer::sanitize_r3_locale_file;
-use super::types::LocaleTable;
 use super::types::TableEntry;
+use super::types::{LocaleTable, ParseR3Error};
 use hashbrown::HashTable;
 use memchr::{memchr, memmem};
 use std::fs;
@@ -9,7 +9,12 @@ use xxhash_rust::xxh3::xxh3_64;
 
 pub fn parse_r3locale_file(path: Option<&Path>) -> Result<LocaleTable, ParseR3Error> {
     let bytes: Vec<u8> = match path {
-        Some(p) => fs::read(p).expect("Unable to locate locale file"),
+        Some(p) => {
+            if p.exists() {
+                fs::read(p).expect("Unexpected error while reading locale file");
+            }
+            return Err(ParseR3Error::FileNotFound);
+        }
         None => Vec::from(include_bytes!("../../src/example.r3l") as &[u8]),
     };
     parse_r3locale_bytes(&bytes)
@@ -103,18 +108,6 @@ pub fn insert_into_hashtable(
         },
         move |e: &TableEntry| e.key,
     );
-}
-
-#[derive(Debug)]
-#[repr(C)]
-pub enum ParseR3Error {
-    Normal,
-    FileNotFound,
-    KeyValueMismatch,
-    BracketMismatch,
-    InvalidUTF8Value,
-    InvalidUTF8Path,
-    NullPathProvided,
 }
 
 #[cfg(test)]
