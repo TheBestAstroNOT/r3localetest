@@ -118,7 +118,7 @@ impl LocaleTable {
     pub fn show_all_entries(&self) {
         for entry in self.entries.iter() {
             let data_slice = &self.unified_box[entry.offset..entry.offset + entry.length];
-            match str::from_utf8(data_slice) {
+            match std::str::from_utf8(data_slice) {
                 Ok(value_str) => {
                     println!("Key: {:016x}, Value: {}", entry.key, value_str);
                 }
@@ -143,7 +143,7 @@ impl LocaleTable {
             .find(hash, |entry| entry.key == hash)
             .and_then(|entry| {
                 let slice = &self.unified_box[entry.offset..entry.offset + entry.length];
-                str::from_utf8(slice).ok()
+                std::str::from_utf8(slice).ok()
             })
     }
 }
