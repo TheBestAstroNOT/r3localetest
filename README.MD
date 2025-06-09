@@ -1,8 +1,9 @@
 # r3localetest
 
-[![Crates.io](https://img.shields.io/crates/v/r3localetest.svg)](https://crates.io/crates/r3localetest)
-[![Docs.rs](https://docs.rs/r3localetest/badge.svg)](https://docs.rs/r3localetest)
-[![CI](https://github.com/TheBestAstroNOT/r3localetest/actions/workflows/rust.yml/badge.svg)](https://github.com/TheBestAstroNOT/r3localetest/actions)
+[![Crates.io](https://img.shields.io/crates/v/reloaded3.localisation.svg)](https://crates.io/crates/reloaded3.localisation)
+[![Docs.rs](https://docs.rs/reloaded3.localisation/badge.svg)](https://docs.rs/reloaded3.localisation)
+[![CI](https://github.com/TheBestAstroNOT/reloaded3.localisation/actions/workflows/rust.yml/badge.svg)](https://github.com/TheBestAstroNOT/reloaded3.localisation/actions)
+[![codecov](https://codecov.io/gh/TheBestAstroNOT/reloaded3.localisation/branch/main/graph/badge.svg)](https://codecov.io/gh/TheBestAstroNOT/reloaded3.localisation)
 
 -----------------------
 
