@@ -79,9 +79,9 @@ jobs:
         if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/')
         shell: bash
         run: |
-          SEARCH_RESULT=$(cargo search "^r3localetest$" --limit 1)
+          SEARCH_RESULT=$(cargo search "^reloaded3_localisation$" --limit 1)
 
-          if echo "$SEARCH_RESULT" | grep -q "^r3localetest "; then
+          if echo "$SEARCH_RESULT" | grep -q "^reloaded3_localisation "; then
             rustup target add ${{ matrix.target }}
             cargo install cargo-semver-checks
             cargo semver-checks --target ${{ matrix.target }} --features c-exports
