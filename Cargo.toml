@@ -1,6 +1,6 @@
 [package]
 name = "reloaded3_localisation"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "Localisation System Test for Reloaded 3"
 repository = "https://github.com/TheBestAstroNOT/reloaded3.localisation"
