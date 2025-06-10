@@ -1,8 +1,8 @@
 site_name: Reloaded MkDocs Theme
-site_url: https://github.com/TheBestAstroNOT/r3-locale-test
+site_url: https://github.com/TheBestAstroNOT/reloaded3.localisation
 
 repo_name: TheBestAstroNOT/r3-locale-test
-repo_url: https://github.com/TheBestAstroNOT/r3-locale-test
+repo_url: https://github.com/TheBestAstroNOT/reloaded3.localisation
 
 extra:
   social:
@@ -39,7 +39,7 @@ markdown_extensions:
 theme:
   name: material
   palette:
-    scheme: reloaded-slate
+    scheme: reloaded3-slate
   features:
     - navigation.instant
 
