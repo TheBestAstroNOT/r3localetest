@@ -31,3 +31,5 @@ git submodule add https://github.com/Reloaded-Project/Reloaded.MkDocsMaterial.Th
 If you have questions/bug reports/etc. feel free to [Open an Issue](https://github.com/Reloaded-Project/Reloaded.MkDocsMaterial.Themes.R2/issues/new).
 
 Happy Documenting ❤️
+
+Random Text
