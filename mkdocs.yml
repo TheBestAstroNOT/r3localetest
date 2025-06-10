@@ -61,4 +61,6 @@ plugins:
 nav:
   - Home: index.md
   - Functions:
-      - Creating a LocaleTable Object: functions/get_locale_table.md
+      - Creating a LocaleTable object: functions/get_locale_table.md
+      - Freeing a LocaleTable object: functions/free_locale_table.md
+      - Accessing an entry from the object: functions/get_entry.md
