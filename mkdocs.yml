@@ -60,3 +60,5 @@ plugins:
 
 nav:
   - Home: index.md
+  - Functions:
+      - get_locale_table: functions/get_locale_table.md
