@@ -93,7 +93,7 @@ pub fn insert_into_hashtable(
     offset: usize,
     length: usize,
 ) {
-    let hash = xxh3_64(&key);
+    let hash = xxh3_64(key);
     table.insert_unique(
         hash,
         TableEntry {

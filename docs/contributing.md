@@ -1,6 +1,6 @@
 # Contribution Guidelines
 
-First off, thank you for considering contributing to r3localetest.
+First off, thank you for considering contributing to reloaded3.localisation
 
 If your contribution is not straightforward, please first discuss the change you
 wish to make by creating a new issue before making the change. We might be able to discuss

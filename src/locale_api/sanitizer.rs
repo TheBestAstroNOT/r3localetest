@@ -2,7 +2,7 @@ use crate::locale_api::types::ParseR3Error;
 use memchr::{memchr, memchr_iter};
 
 pub fn sanitize_r3_locale_file(file: &[u8]) -> Result<Box<[u8]>, ParseR3Error> {
-    if !std::str::from_utf8(&file).is_ok() {
+    if std::str::from_utf8(file).is_err() {
         return Err(ParseR3Error::InvalidUTF8Value);
     }
     let file_len = file.len();
@@ -20,7 +20,7 @@ pub fn sanitize_r3_locale_file(file: &[u8]) -> Result<Box<[u8]>, ParseR3Error> {
     }
     temp_file.extend_from_slice(&file[last_pos..]);
 
-    let comment_opening_matches_initial: Vec<usize> = memchr_iter(b'#', &*temp_file).collect();
+    let comment_opening_matches_initial: Vec<usize> = memchr_iter(b'#', &temp_file).collect();
     let mut comment_closing_matches = Vec::new();
     let mut comment_opening_matches: Vec<usize> =
         Vec::with_capacity(comment_opening_matches_initial.len() / 2);

@@ -7,9 +7,9 @@ repo_url: https://github.com/TheBestAstroNOT/r3-locale-test
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/TheBestAstroNOT
-    # - icon: fontawesome/brands/twitter
-    #  link: https://twitter.com/thesewer56?lang=en-GB
+      link: https://github.com/Reloaded-Project
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/thesewer56?lang=en-GB
 
 extra_css:
   - Reloaded/Stylesheets/extra.css
@@ -39,7 +39,7 @@ markdown_extensions:
 theme:
   name: material
   palette:
-    scheme: reloaded3-slate
+    scheme: reloaded-slate
   features:
     - navigation.instant
 
@@ -52,8 +52,7 @@ plugins:
   - exclude:
       # Exclude the Theme's own files.
       glob:
-        - Reloaded/Pages/testing-zone.md
-        - Reloaded/Pages/index.md
+        - Reloaded/Pages/*
         - Reloaded/docs/*
         - Reloaded/Readme.md
         - Reloaded/LICENSE
@@ -61,6 +60,3 @@ plugins:
 
 nav:
   - Home: index.md
-  - Contributing: contributing.md
-  - License: Reloaded/Pages/license.md
-  - How to Document: Reloaded/Pages/contributing.md

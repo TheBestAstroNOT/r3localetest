@@ -133,7 +133,7 @@ impl LocaleTable {
         let hash = xxh3_64(key);
         self.entries
             .find(hash, |entry| entry.key == hash)
-            .and_then(|entry| return Some((entry.offset, entry.length)));
+            .map(|entry| return (entry.offset, entry.length));
         None
     }
 
