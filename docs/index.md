@@ -4,32 +4,25 @@ hide:
 ---
 
 <div align="center">
-	<h1>The Reloaded MkDocs Theme</h1>
+	<h1>The Reloaded-3 Localisation API</h1>
 	<img src="Reloaded/Images/Reloaded-Icon.png"/>
 	<br/> <br/>
-    A Theme for MkDocs Material.
+    A guide on how to use R3's locale api (hopefully).
     <br/>
-    That resembles the look of <i>Reloaded</i>.
 </div>
 
 ## About
 
-This is the Reloaded theme for Material-MkDocs, inspired by the look of [Reloaded-II](https://reloaded-project.github.io/Reloaded-II/).  
+Reloaded3.Localisation is a high performance API to easily parse R3 locale files and access their values in C or Rust!
 
-You can [learn more about this theme here](https://reloaded-project.github.io/Reloaded.MkDocsMaterial.Themes.R2/Pages/).  
+!!! warning
 
-## Is this Page Broken?
+    All locale files must only use UTF-8 characters, using non-UTF-8 characters will result in a default LocaleTable being returned with no values.
 
-You probably forgot to clone the theme submodule to `docs/Reloaded`, try this:
+## Used Methods
 
-```
-git submodule add https://github.com/Reloaded-Project/Reloaded.MkDocsMaterial.Themes.R2.git docs/Reloaded
-```
-
-## Technical Questions
-
-If you have questions/bug reports/etc. feel free to [Open an Issue](https://github.com/Reloaded-Project/Reloaded.MkDocsMaterial.Themes.R2/issues/new).
-
-Happy Documenting ❤️
-
-Random Text
+| Method              | Description                                                                          |
+|---------------------|--------------------------------------------------------------------------------------|
+| `get_locale_table`  | Used to get an instance of the LocaleTable object to be used in all other API calls. |
+| `get_entry`         | Used to fetch a value from the LocaleTable                                           |
+| `free_locale_table` | Used to free the LocaleTable instance from memory.                                   |
