@@ -44,7 +44,7 @@ pub unsafe extern "C" fn merge_locale_table(tables: *const *const LocaleTable, c
         return std::ptr::null_mut();
     }
 
-    Box::into_raw(Box::new(merge_locale_table_internal(unsafe{ &std::slice::from_raw_parts(tables as *const &LocaleTable, count) })))
+    Box::into_raw(Box::new(merge_locale_table_internal(unsafe{ std::slice::from_raw_parts(tables as *const &LocaleTable, count) })))
 }
 
 pub fn merge_locale_table_internal( tables: &[&LocaleTable] ) -> LocaleTable {
@@ -55,7 +55,7 @@ pub fn merge_locale_table_internal( tables: &[&LocaleTable] ) -> LocaleTable {
     for table in tables {
         for entry in table.entries.iter() {
             if initial_table.find(entry.key, |table_entry: &(TableEntry, &Box<[u8]>)|table_entry.0.key == entry.key).is_none() {
-                initial_table.insert_unique(entry.key, (entry.clone(), &table.unified_box), initial_hasher);
+                initial_table.insert_unique(entry.key, (*entry, &table.unified_box), initial_hasher);
             }
         }
     }
@@ -76,7 +76,7 @@ pub fn merge_locale_table_internal( tables: &[&LocaleTable] ) -> LocaleTable {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn get_locale_table(path: *const c_char) -> AllocationResult {
+pub unsafe extern "C" fn get_locale_table(path: *const c_char) -> AllocationResult {
     if path.is_null() {
         return AllocationResult {
             table: std::ptr::null_mut(),
@@ -108,7 +108,7 @@ pub extern "C" fn get_locale_table(path: *const c_char) -> AllocationResult {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn get_multiple_locale_tables(paths: *const *const c_char, count: usize) -> AllocationResult {
+pub unsafe extern "C" fn get_multiple_locale_tables(paths: *const *const c_char, count: usize) -> AllocationResult {
     if paths.is_null() {
         return AllocationResult {
             table: std::ptr::null_mut(),
@@ -160,11 +160,7 @@ pub extern "C" fn get_multiple_locale_tables(paths: *const *const c_char, count:
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn get_entry(
-    table: *const LocaleTable,
-    key_ptr: *const u8,
-    key_len: usize,
-) -> FindEntryResult {
+pub unsafe extern "C" fn get_entry( table: *const LocaleTable, key_ptr: *const u8, key_len: usize) -> FindEntryResult {
     if table.is_null() {
         return FindEntryResult {
             value_ptr: std::ptr::null(),
@@ -200,7 +196,7 @@ pub extern "C" fn get_entry(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn free_locale_table(ptr: *mut LocaleTable) {
+pub unsafe extern "C" fn free_locale_table(ptr: *mut LocaleTable) {
     if !ptr.is_null() {
         unsafe { drop(Box::from_raw(ptr)) };
     }
