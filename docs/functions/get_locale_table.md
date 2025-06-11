@@ -62,7 +62,7 @@ AllocationResult get_locale_table(const char* path);
 }
 #endif
 
-#endif // R3LOCALE_GET_H
+#endif
 ```
 
 ### Main Function
