@@ -74,7 +74,7 @@ if (result.allocation_state == ParseR3Error_Normal && result.table != NULL){
 }
 ```
 
-## AllocationResult
+## AllocationResult Struct
 AllocationResult represents the result of calling get_locale_table, which attempts to parse and allocate memory for a Reloaded-3 localisation file.
 
 | Field              | Type           | Description                                                                                  |
