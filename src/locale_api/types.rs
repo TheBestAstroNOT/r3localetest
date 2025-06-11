@@ -5,6 +5,7 @@ use std::os::raw::c_char;
 use std::path::Path;
 use xxhash_rust::xxh3::xxh3_64;
 
+#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct TableEntry {
     pub key: u64,
@@ -36,6 +37,45 @@ pub fn get_locale_table_rust(path: &Path) -> Result<LocaleTable, ParseR3Error> {
 }
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn merge_locale_table(tables: *const *const LocaleTable, count: usize,) -> *mut LocaleTable{
+    //NOTE: DO NOT FORGET TO NOTE THAT THE FIRST ITEM IN THE ARRAY OF POINTERS WILL WIN
+
+    if tables.is_null() {
+        return std::ptr::null_mut();
+    }
+
+    Box::into_raw(Box::new(merge_locale_table_internal(unsafe{ &std::slice::from_raw_parts(tables as *const &LocaleTable, count) })))
+}
+
+pub fn merge_locale_table_internal( tables: &[&LocaleTable] ) -> LocaleTable {
+    let initial_hasher = |entry: &(TableEntry, &Box<[u8]>)| entry.0.key;
+    let final_hasher = |entry: &TableEntry| entry.key;
+    let mut initial_table:HashTable<(TableEntry, &Box<[u8]>)> = HashTable::new();
+    
+    for table in tables {
+        for entry in table.entries.iter() {
+            if initial_table.find(entry.key, |table_entry: &(TableEntry, &Box<[u8]>)|table_entry.0.key == entry.key).is_none() {
+                initial_table.insert_unique(entry.key, (entry.clone(), &table.unified_box), initial_hasher);
+            }
+        }
+    }
+
+    let mut final_table:HashTable<TableEntry> = HashTable::new();
+    let mut final_buffer: Vec<u8> = Vec::new();
+    for entry in initial_table.iter(){
+        final_table.insert_unique(entry.0.key, TableEntry{key: entry.0.key, length: entry.0.length, offset: final_buffer.len()}, final_hasher);
+        final_buffer.extend_from_slice(&entry.1[entry.0.offset..entry.0.offset+entry.0.length]);
+    }
+
+    let final_boxed_buffer = final_buffer.into_boxed_slice();
+
+    LocaleTable {
+        unified_box: final_boxed_buffer,
+        entries: final_table,
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn get_locale_table(path: *const c_char) -> AllocationResult {
     if path.is_null() {
         return AllocationResult {
@@ -64,6 +104,58 @@ pub extern "C" fn get_locale_table(path: *const c_char) -> AllocationResult {
             table: std::ptr::null_mut(),
             allocation_state: parse_error,
         },
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn get_multiple_locale_tables(paths: *const *const c_char, count: usize) -> AllocationResult {
+    if paths.is_null() {
+        return AllocationResult {
+            table: std::ptr::null_mut(),
+            allocation_state: ParseR3Error::NullPathProvided,
+        };
+    }
+
+    // Convert raw pointer to slice
+    let path_slice = unsafe { std::slice::from_raw_parts(paths, count) };
+
+    let mut parsed_tables = Vec::with_capacity(count);
+    for &c_path in path_slice {
+        if c_path.is_null() {
+            return AllocationResult {
+                table: std::ptr::null_mut(),
+                allocation_state: ParseR3Error::NullPathProvided,
+            };
+        }
+
+        let c_str = unsafe { CStr::from_ptr(c_path) };
+        let path_str = match c_str.to_str() {
+            Ok(s) => s,
+            Err(_) => {
+                return AllocationResult {
+                    table: std::ptr::null_mut(),
+                    allocation_state: ParseR3Error::InvalidUTF8Path,
+                };
+            }
+        };
+
+        match parse_r3locale_file(Path::new(path_str)) {
+            Ok(table) => parsed_tables.push(table),
+            Err(parse_error) => {
+                return AllocationResult {
+                    table: std::ptr::null_mut(),
+                    allocation_state: parse_error,
+                };
+            }
+        }
+    }
+
+    // References to all tables for merging
+    let references: Vec<&LocaleTable> = parsed_tables.iter().collect();
+    let merged = merge_locale_table_internal(&references);
+    AllocationResult {
+        table: Box::into_raw(Box::new(merged)),
+        allocation_state: ParseR3Error::Normal,
     }
 }
 
