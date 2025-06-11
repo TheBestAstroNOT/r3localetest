@@ -2,7 +2,7 @@ use criterion::{Criterion, criterion_group, criterion_main};
 use reloaded3_localisation::locale_api::parser::parse_r3locale_bytes;
 
 fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("parser", |b| {
+    c.bench_function("Locale File Parser", |b| {
         b.iter(|| {
             // Pass the Path reference to the function
             match parse_r3locale_bytes(include_bytes!("../../src/example.r3l")) {
