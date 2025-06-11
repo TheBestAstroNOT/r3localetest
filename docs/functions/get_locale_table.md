@@ -1,1 +1,99 @@
-## TEST
+!!! info
+    All other functions in the API require an instance of the LocaleTable object to be passed to them, so this needs to be the first function you call when using the API.
+
+
+## Usage
+The `get_locale_table` function takes a `const char*` representing the path to the localisation file you want to load.
+
+!!! warning
+    The returned LocaleTable must be freed with `free_locale_table` when it's no longer in use.
+
+### Header File
+```c
+#ifndef R3LOCALE_GET_H
+#define R3LOCALE_GET_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <stddef.h> // for size_t
+
+/**
+ * @brief Enum representing possible outcomes of parsing or allocating a locale table.
+ */
+typedef enum {
+    ParseR3Error_Normal,
+    ParseR3Error_FileNotFound,
+    ParseR3Error_FailedToRead,
+    ParseR3Error_KeyValueMismatch,
+    ParseR3Error_BracketMismatch,
+    ParseR3Error_InvalidUTF8Value,
+    ParseR3Error_InvalidUTF8Path,
+    ParseR3Error_NullPathProvided
+} ParseR3Error;
+
+/**
+ * @brief Forward declaration of the opaque LocaleTable struct.
+ */
+typedef struct LocaleTable LocaleTable;
+
+/**
+ * @brief Struct representing the result of loading a locale table.
+ */
+typedef struct {
+    LocaleTable* table;         ///< Pointer to the loaded LocaleTable (NULL if failed)
+    ParseR3Error allocation_state; ///< Status of the operation
+} AllocationResult;
+
+/**
+ * @brief Loads an `.r3locale` file and returns a parsed LocaleTable object.
+ *
+ * @param path A null-terminated UTF-8 string representing the file path.
+ * @return AllocationResult
+ *         - `table`: pointer to the allocated LocaleTable (must be freed later)
+ *         - `allocation_state`: result of the parsing/allocation process
+ *
+ * @note Must call `free_locale_table` to deallocate the returned table when done.
+ */
+AllocationResult get_locale_table(const char* path);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // R3LOCALE_GET_H
+```
+
+### Main Function
+```c
+const char* file_path = "example.r3locale"; //Replace with actual path to the localisation file you want to load
+AllocationResult result = get_locale_table(file_path);
+if (result.allocation_state == ParseR3Error_Normal && result.table != NULL){
+ //Store result.table somewhere for later use with other functions.
+}
+```
+
+## AllocationResult
+AllocationResult represents the result of calling get_locale_table, which attempts to parse and allocate memory for a Reloaded-3 localisation file.
+
+| Field              | Type           | Description                                                                                  |
+|--------------------|----------------|----------------------------------------------------------------------------------------------|
+| `table`            | `LocaleTable*` | Pointer to the allocated LocaleTable object if successful, otherwise returns a NULL pointer. |
+| `allocation_state` | `ParseR3Error` | Enum indicating the result of the allocation or parsing process.                             |
+
+### LocaleTable
+A LocaleTable holds the key-value string data extracted from a localisation file.
+It's fields are not accessible from C, but are used by the Rust implementation to provide fast lookups with low overhead.
+
+### ParseR3Error Enum Values
+| Variant                         | Description                                                                |
+|---------------------------------|----------------------------------------------------------------------------|
+| `ParseR3Error_Normal`           | The operation completed successfully.                                      |
+| `ParseR3Error_FileNotFound`     | The specified file could not be found.                                     |
+| `ParseR3Error_FailedToRead`     | Failed to read the file from disk.                                         |
+| `ParseR3Error_KeyValueMismatch` | Mismatch in number of keys and values while parsing the localisation file. |
+| `ParseR3Error_BracketMismatch`  | Detected invalid bracket structure in the localisation file.               |
+| `ParseR3Error_InvalidUTF8Value` | A string value in the localisation file was not valid UTF-8.               |
+| `ParseR3Error_InvalidUTF8Path`  | The file path provided could not be parsed as valid UTF-8.                 |
+| `ParseR3Error_NullPathProvided` | The input path pointer was `NULL`.                                         |
