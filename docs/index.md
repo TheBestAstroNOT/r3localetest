@@ -17,7 +17,7 @@ Reloaded3.Localisation is a high performance API to easily parse R3 locale files
 
 !!! warning
 
-    All locale files must only use UTF-8 characters, using non-UTF-8 characters will result in a default LocaleTable being returned with no values.
+    All locale files must only use UTF-8 characters, using non UTF-8 characters will result in a default LocaleTable being returned with no values.
 
 ## Used Methods
 
