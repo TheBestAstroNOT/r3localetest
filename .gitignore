@@ -2,3 +2,4 @@ target
 /Cargo.lock
 /fuzz/hfuzz_target
 /mkdocs
+/.idea/material_theme_project_new.xml

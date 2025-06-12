@@ -32,46 +32,79 @@ pub struct FindEntryResult {
     pub allocation_state: FindEntryError,
 }
 
+#[repr(C)]
+pub struct MergeResult {
+    pub table: *mut LocaleTable,
+    pub merge_state: MergeTableError,
+}
+
 pub fn get_locale_table_rust(path: &Path) -> Result<LocaleTable, ParseR3Error> {
     parse_r3locale_file(path)
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn merge_locale_table(tables: *const *const LocaleTable, count: usize,) -> *mut LocaleTable{
+pub unsafe extern "C" fn merge_locale_table(
+    tables: *const *const LocaleTable,
+    count: usize,
+) -> MergeResult {
     //NOTE: DO NOT FORGET TO NOTE THAT THE FIRST ITEM IN THE ARRAY OF POINTERS WILL WIN
 
     if tables.is_null() {
-        return std::ptr::null_mut();
+        return MergeResult {
+            table: std::ptr::null_mut(),
+            merge_state: MergeTableError::NullTablePointer,
+        };
     }
 
-    Box::into_raw(Box::new(merge_locale_table_internal(unsafe{ std::slice::from_raw_parts(tables as *const &LocaleTable, count) })))
+    merge_locale_table_internal(unsafe {
+        std::slice::from_raw_parts(tables as *const &LocaleTable, count)
+    })
 }
 
-pub fn merge_locale_table_internal( tables: &[&LocaleTable] ) -> LocaleTable {
+pub fn merge_locale_table_internal(tables: &[&LocaleTable]) -> MergeResult {
     let initial_hasher = |entry: &(TableEntry, &Box<[u8]>)| entry.0.key;
     let final_hasher = |entry: &TableEntry| entry.key;
-    let mut initial_table:HashTable<(TableEntry, &Box<[u8]>)> = HashTable::new();
-    
+    let mut initial_table: HashTable<(TableEntry, &Box<[u8]>)> = HashTable::new();
+
     for table in tables {
         for entry in table.entries.iter() {
-            if initial_table.find(entry.key, |table_entry: &(TableEntry, &Box<[u8]>)|table_entry.0.key == entry.key).is_none() {
-                initial_table.insert_unique(entry.key, (*entry, &table.unified_box), initial_hasher);
+            if initial_table
+                .find(entry.key, |table_entry: &(TableEntry, &Box<[u8]>)| {
+                    table_entry.0.key == entry.key
+                })
+                .is_none()
+            {
+                initial_table.insert_unique(
+                    entry.key,
+                    (*entry, &table.unified_box),
+                    initial_hasher,
+                );
             }
         }
     }
 
-    let mut final_table:HashTable<TableEntry> = HashTable::new();
+    let mut final_table: HashTable<TableEntry> = HashTable::new();
     let mut final_buffer: Vec<u8> = Vec::new();
-    for entry in initial_table.iter(){
-        final_table.insert_unique(entry.0.key, TableEntry{key: entry.0.key, length: entry.0.length, offset: final_buffer.len()}, final_hasher);
-        final_buffer.extend_from_slice(&entry.1[entry.0.offset..entry.0.offset+entry.0.length]);
+    for entry in initial_table.iter() {
+        final_table.insert_unique(
+            entry.0.key,
+            TableEntry {
+                key: entry.0.key,
+                length: entry.0.length,
+                offset: final_buffer.len(),
+            },
+            final_hasher,
+        );
+        final_buffer.extend_from_slice(&entry.1[entry.0.offset..entry.0.offset + entry.0.length]);
     }
 
     let final_boxed_buffer = final_buffer.into_boxed_slice();
-
-    LocaleTable {
-        unified_box: final_boxed_buffer,
-        entries: final_table,
+    MergeResult {
+        table: Box::into_raw(Box::new(LocaleTable {
+            unified_box: final_boxed_buffer,
+            entries: final_table,
+        })),
+        merge_state: MergeTableError::Normal,
     }
 }
 
@@ -108,11 +141,14 @@ pub unsafe extern "C" fn get_locale_table(path: *const c_char) -> AllocationResu
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn get_multiple_locale_tables(paths: *const *const c_char, count: usize) -> AllocationResult {
+pub unsafe extern "C" fn get_multiple_locale_tables(
+    paths: *const *const c_char,
+    count: usize,
+) -> MergeResult {
     if paths.is_null() {
-        return AllocationResult {
+        return MergeResult {
             table: std::ptr::null_mut(),
-            allocation_state: ParseR3Error::NullPathProvided,
+            merge_state: MergeTableError::NullPathProvided,
         };
     }
 
@@ -122,9 +158,9 @@ pub unsafe extern "C" fn get_multiple_locale_tables(paths: *const *const c_char,
     let mut parsed_tables = Vec::with_capacity(count);
     for &c_path in path_slice {
         if c_path.is_null() {
-            return AllocationResult {
+            return MergeResult {
                 table: std::ptr::null_mut(),
-                allocation_state: ParseR3Error::NullPathProvided,
+                merge_state: MergeTableError::NullPathProvided,
             };
         }
 
@@ -132,9 +168,9 @@ pub unsafe extern "C" fn get_multiple_locale_tables(paths: *const *const c_char,
         let path_str = match c_str.to_str() {
             Ok(s) => s,
             Err(_) => {
-                return AllocationResult {
+                return MergeResult {
                     table: std::ptr::null_mut(),
-                    allocation_state: ParseR3Error::InvalidUTF8Path,
+                    merge_state: MergeTableError::InvalidUTF8Path,
                 };
             }
         };
@@ -142,9 +178,9 @@ pub unsafe extern "C" fn get_multiple_locale_tables(paths: *const *const c_char,
         match parse_r3locale_file(Path::new(path_str)) {
             Ok(table) => parsed_tables.push(table),
             Err(parse_error) => {
-                return AllocationResult {
+                return MergeResult {
                     table: std::ptr::null_mut(),
-                    allocation_state: parse_error,
+                    merge_state: parse_error.into(),
                 };
             }
         }
@@ -152,15 +188,15 @@ pub unsafe extern "C" fn get_multiple_locale_tables(paths: *const *const c_char,
 
     // References to all tables for merging
     let references: Vec<&LocaleTable> = parsed_tables.iter().collect();
-    let merged = merge_locale_table_internal(&references);
-    AllocationResult {
-        table: Box::into_raw(Box::new(merged)),
-        allocation_state: ParseR3Error::Normal,
-    }
+    merge_locale_table_internal(&references)
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn get_entry( table: *const LocaleTable, key_ptr: *const u8, key_len: usize) -> FindEntryResult {
+pub unsafe extern "C" fn get_entry(
+    table: *const LocaleTable,
+    key_ptr: *const u8,
+    key_len: usize,
+) -> FindEntryResult {
     if table.is_null() {
         return FindEntryResult {
             value_ptr: std::ptr::null(),
@@ -256,4 +292,33 @@ pub enum FindEntryError {
     NullTable,
     NullKeyPtr,
     NoEntryFound,
+}
+
+#[derive(Debug)]
+#[repr(C)]
+pub enum MergeTableError {
+    Normal,
+    NullTablePointer,
+    FileNotFound,
+    FailedToRead,
+    KeyValueMismatch,
+    BracketMismatch,
+    InvalidUTF8Value,
+    InvalidUTF8Path,
+    NullPathProvided,
+}
+
+impl From<ParseR3Error> for MergeTableError {
+    fn from(err: ParseR3Error) -> Self {
+        match err {
+            ParseR3Error::Normal => MergeTableError::Normal,
+            ParseR3Error::FileNotFound => MergeTableError::FileNotFound,
+            ParseR3Error::FailedToRead => MergeTableError::FailedToRead,
+            ParseR3Error::KeyValueMismatch => MergeTableError::KeyValueMismatch,
+            ParseR3Error::BracketMismatch => MergeTableError::BracketMismatch,
+            ParseR3Error::InvalidUTF8Value => MergeTableError::InvalidUTF8Value,
+            ParseR3Error::InvalidUTF8Path => MergeTableError::InvalidUTF8Path,
+            ParseR3Error::NullPathProvided => MergeTableError::NullPathProvided,
+        }
+    }
 }
