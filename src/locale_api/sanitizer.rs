@@ -1,4 +1,4 @@
-use crate::locale_api::types::ParseR3Error;
+use crate::locale_api::parser::ParseR3Error;
 use memchr::{memchr, memchr_iter};
 
 pub fn sanitize_r3_locale_file(file: &[u8]) -> Result<Box<[u8]>, ParseR3Error> {

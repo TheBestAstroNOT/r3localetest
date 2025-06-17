@@ -1,4 +1,5 @@
-use super::parser::parse_r3locale_file;
+use super::parser::{MergeResult, MergeTableError, ParseR3Error, parse_r3locale_file};
+use crate::locale_api::parser;
 use hashbrown::HashTable;
 use std::ffi::CStr;
 use std::os::raw::c_char;
@@ -32,16 +33,6 @@ pub struct FindEntryResult {
     pub allocation_state: FindEntryError,
 }
 
-#[repr(C)]
-pub struct MergeResult {
-    pub table: *mut LocaleTable,
-    pub merge_state: MergeTableError,
-}
-
-pub fn get_locale_table_rust(path: &Path) -> Result<LocaleTable, ParseR3Error> {
-    parse_r3locale_file(path)
-}
-
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn merge_locale_table_c(
     tables: *const *const LocaleTable,
@@ -56,56 +47,9 @@ pub unsafe extern "C" fn merge_locale_table_c(
         };
     }
 
-    merge_locale_table_rust(unsafe {
+    parser::merge_locale_table_rust(unsafe {
         std::slice::from_raw_parts(tables as *const &LocaleTable, count)
     })
-}
-
-pub fn merge_locale_table_rust(tables: &[&LocaleTable]) -> MergeResult {
-    let initial_hasher = |entry: &(TableEntry, &Box<[u8]>)| entry.0.key;
-    let final_hasher = |entry: &TableEntry| entry.key;
-    let mut initial_table: HashTable<(TableEntry, &Box<[u8]>)> = HashTable::new();
-
-    for table in tables {
-        for entry in table.entries.iter() {
-            if initial_table
-                .find(entry.key, |table_entry: &(TableEntry, &Box<[u8]>)| {
-                    table_entry.0.key == entry.key
-                })
-                .is_none()
-            {
-                initial_table.insert_unique(
-                    entry.key,
-                    (*entry, &table.unified_box),
-                    initial_hasher,
-                );
-            }
-        }
-    }
-
-    let mut final_table: HashTable<TableEntry> = HashTable::new();
-    let mut final_buffer: Vec<u8> = Vec::new();
-    for entry in initial_table.iter() {
-        final_table.insert_unique(
-            entry.0.key,
-            TableEntry {
-                key: entry.0.key,
-                length: entry.0.length,
-                offset: final_buffer.len(),
-            },
-            final_hasher,
-        );
-        final_buffer.extend_from_slice(&entry.1[entry.0.offset..entry.0.offset + entry.0.length]);
-    }
-
-    let final_boxed_buffer = final_buffer.into_boxed_slice();
-    MergeResult {
-        table: Box::into_raw(Box::new(LocaleTable {
-            unified_box: final_boxed_buffer,
-            entries: final_table,
-        })),
-        merge_state: MergeTableError::Normal,
-    }
 }
 
 #[unsafe(no_mangle)]
@@ -188,7 +132,7 @@ pub unsafe extern "C" fn get_multiple_locale_tables(
 
     // References to all tables for merging
     let references: Vec<&LocaleTable> = parsed_tables.iter().collect();
-    merge_locale_table_rust(&references)
+    parser::merge_locale_table_rust(&references)
 }
 
 #[unsafe(no_mangle)]
@@ -274,51 +218,9 @@ impl LocaleTable {
 
 #[derive(Debug)]
 #[repr(C)]
-pub enum ParseR3Error {
-    Normal,
-    FileNotFound,
-    FailedToRead,
-    KeyValueMismatch,
-    BracketMismatch,
-    InvalidUTF8Value,
-    InvalidUTF8Path,
-    NullPathProvided,
-}
-
-#[derive(Debug)]
-#[repr(C)]
 pub enum FindEntryError {
     Normal,
     NullTable,
     NullKeyPtr,
     NoEntryFound,
-}
-
-#[derive(Debug)]
-#[repr(C)]
-pub enum MergeTableError {
-    Normal,
-    NullTablePointer,
-    FileNotFound,
-    FailedToRead,
-    KeyValueMismatch,
-    BracketMismatch,
-    InvalidUTF8Value,
-    InvalidUTF8Path,
-    NullPathProvided,
-}
-
-impl From<ParseR3Error> for MergeTableError {
-    fn from(err: ParseR3Error) -> Self {
-        match err {
-            ParseR3Error::Normal => MergeTableError::Normal,
-            ParseR3Error::FileNotFound => MergeTableError::FileNotFound,
-            ParseR3Error::FailedToRead => MergeTableError::FailedToRead,
-            ParseR3Error::KeyValueMismatch => MergeTableError::KeyValueMismatch,
-            ParseR3Error::BracketMismatch => MergeTableError::BracketMismatch,
-            ParseR3Error::InvalidUTF8Value => MergeTableError::InvalidUTF8Value,
-            ParseR3Error::InvalidUTF8Path => MergeTableError::InvalidUTF8Path,
-            ParseR3Error::NullPathProvided => MergeTableError::NullPathProvided,
-        }
-    }
 }

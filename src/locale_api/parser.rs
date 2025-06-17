@@ -1,6 +1,6 @@
+use super::r#extern::LocaleTable;
+use super::r#extern::TableEntry;
 use super::sanitizer::sanitize_r3_locale_file;
-use super::types::TableEntry;
-use super::types::{LocaleTable, ParseR3Error};
 use hashbrown::HashTable;
 use memchr::{memchr, memmem};
 use std::fs;
@@ -77,7 +77,10 @@ pub fn parse_r3locale_bytes(bytes: &[u8]) -> Result<LocaleTable, ParseR3Error> {
         .trim()
         .as_bytes();
         concatenated_value.extend_from_slice(value);
-        insert_into_hashtable(&mut locale_hash_table, key, offset, value.len());
+        if insert_into_hashtable(&mut locale_hash_table, key, offset, value.len()).is_err() {
+            return Err(ParseR3Error::DuplicateKeys);
+        }
+
         offset += value.len();
     }
     concatenated_value.shrink_to_fit();
@@ -93,9 +96,12 @@ pub fn insert_into_hashtable(
     key: &[u8],
     offset: usize,
     length: usize,
-) {
+) -> Result<(), ParseR3Error> {
     let hash = xxh3_64(key);
-    if table.find(hash, |table_entry: &TableEntry| { table_entry.key == hash }).is_none() {
+    if table
+        .find(hash, |table_entry: &TableEntry| table_entry.key == hash)
+        .is_none()
+    {
         table.insert_unique(
             hash,
             TableEntry {
@@ -105,9 +111,9 @@ pub fn insert_into_hashtable(
             },
             move |e: &TableEntry| e.key,
         );
-    }
-    else{
-        eprintln!("Key: {} already found, ignoring the later value.", str::from_utf8(key).expect("Invalid UTF-8 input!"));
+        Ok(())
+    } else {
+        Err(ParseR3Error::DuplicateKeys)
     }
 }
 
@@ -159,5 +165,107 @@ mod tests {
         let val = table.find_entry(b"duplicate_key");
         assert_eq!(val, Some("first_value"));
         assert_eq!(table.entries.len(), 1);
+    }
+}
+
+#[repr(C)]
+pub struct MergeResult {
+    pub table: *mut LocaleTable,
+    pub merge_state: MergeTableError,
+}
+
+pub fn get_locale_table_rust(path: &Path) -> Result<LocaleTable, ParseR3Error> {
+    parse_r3locale_file(path)
+}
+
+pub fn merge_locale_table_rust(tables: &[&LocaleTable]) -> MergeResult {
+    let initial_hasher = |entry: &(TableEntry, &Box<[u8]>)| entry.0.key;
+    let final_hasher = |entry: &TableEntry| entry.key;
+    let mut initial_table: HashTable<(TableEntry, &Box<[u8]>)> = HashTable::new();
+
+    for table in tables {
+        for entry in table.entries.iter() {
+            if initial_table
+                .find(entry.key, |table_entry: &(TableEntry, &Box<[u8]>)| {
+                    table_entry.0.key == entry.key
+                })
+                .is_none()
+            {
+                initial_table.insert_unique(
+                    entry.key,
+                    (*entry, &table.unified_box),
+                    initial_hasher,
+                );
+            }
+        }
+    }
+
+    let mut final_table: HashTable<TableEntry> = HashTable::new();
+    let mut final_buffer: Vec<u8> = Vec::new();
+    for entry in initial_table.iter() {
+        final_table.insert_unique(
+            entry.0.key,
+            TableEntry {
+                key: entry.0.key,
+                length: entry.0.length,
+                offset: final_buffer.len(),
+            },
+            final_hasher,
+        );
+        final_buffer.extend_from_slice(&entry.1[entry.0.offset..entry.0.offset + entry.0.length]);
+    }
+
+    let final_boxed_buffer = final_buffer.into_boxed_slice();
+    MergeResult {
+        table: Box::into_raw(Box::new(LocaleTable {
+            unified_box: final_boxed_buffer,
+            entries: final_table,
+        })),
+        merge_state: MergeTableError::Normal,
+    }
+}
+
+#[derive(Debug)]
+#[repr(C)]
+pub enum ParseR3Error {
+    Normal,
+    FileNotFound,
+    FailedToRead,
+    KeyValueMismatch,
+    BracketMismatch,
+    InvalidUTF8Value,
+    InvalidUTF8Path,
+    NullPathProvided,
+    DuplicateKeys,
+}
+
+#[derive(Debug)]
+#[repr(C)]
+pub enum MergeTableError {
+    Normal,
+    NullTablePointer,
+    FileNotFound,
+    FailedToRead,
+    KeyValueMismatch,
+    BracketMismatch,
+    InvalidUTF8Value,
+    InvalidUTF8Path,
+    NullPathProvided,
+    DuplicateKeys,
+}
+
+impl From<ParseR3Error> for MergeTableError {
+    fn from(err: ParseR3Error) -> Self {
+        match err {
+            ParseR3Error::Normal => MergeTableError::Normal,
+            ParseR3Error::FileNotFound => MergeTableError::FileNotFound,
+            ParseR3Error::FailedToRead => MergeTableError::FailedToRead,
+            ParseR3Error::KeyValueMismatch => MergeTableError::KeyValueMismatch,
+            ParseR3Error::BracketMismatch => MergeTableError::BracketMismatch,
+            ParseR3Error::InvalidUTF8Value => MergeTableError::InvalidUTF8Value,
+            ParseR3Error::InvalidUTF8Path => MergeTableError::InvalidUTF8Path,
+            ParseR3Error::NullPathProvided => MergeTableError::NullPathProvided,
+            ParseR3Error::DuplicateKeys => MergeTableError::DuplicateKeys,
+        }
     }
 }
