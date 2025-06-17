@@ -1,5 +1,5 @@
-use super::r#extern::LocaleTable;
-use super::r#extern::TableEntry;
+use super::interop::LocaleTable;
+use super::interop::TableEntry;
 use super::sanitizer::sanitize_r3_locale_file;
 use hashbrown::HashTable;
 use memchr::{memchr, memmem};
