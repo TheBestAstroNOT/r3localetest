@@ -21,6 +21,7 @@ pub fn parse_r3locale_bytes(bytes: &[u8]) -> Result<LocaleTable, ParseR3Error> {
         Ok(b) => b,
         Err(e) => return Err(e),
     };
+
     let opening_brackets_matches_initial: Vec<usize> =
         memmem::find_iter(&sanitised_bytes, b"[[").collect();
     let mut opening_brackets_matches_final: Vec<usize> =
@@ -94,15 +95,20 @@ pub fn insert_into_hashtable(
     length: usize,
 ) {
     let hash = xxh3_64(key);
-    table.insert_unique(
-        hash,
-        TableEntry {
-            key: hash,
-            offset,
-            length,
-        },
-        move |e: &TableEntry| e.key,
-    );
+    if table.find(hash, |table_entry: &TableEntry| { table_entry.key == hash }).is_none() {
+        table.insert_unique(
+            hash,
+            TableEntry {
+                key: hash,
+                offset,
+                length,
+            },
+            move |e: &TableEntry| e.key,
+        );
+    }
+    else{
+        eprintln!("Key: {} already found, ignoring the later value.", str::from_utf8(key).expect("Invalid UTF-8 input!"));
+    }
 }
 
 #[cfg(test)]
@@ -144,5 +150,14 @@ mod tests {
         let sample = b"[[no_close\nvalue here\n";
         let result = parse_r3locale_bytes(sample);
         assert!(matches!(result, Err(ParseR3Error::BracketMismatch)));
+    }
+
+    #[test]
+    fn test_duplicate_keys() {
+        let sample = b"[[duplicate_key]]\nfirst_value\n[[duplicate_key]]\nsecond_value";
+        let table = parse_r3locale_bytes(sample).expect("Parse failed");
+        let val = table.find_entry(b"duplicate_key");
+        assert_eq!(val, Some("first_value"));
+        assert_eq!(table.entries.len(), 1);
     }
 }

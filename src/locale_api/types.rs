@@ -43,7 +43,7 @@ pub fn get_locale_table_rust(path: &Path) -> Result<LocaleTable, ParseR3Error> {
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn merge_locale_table(
+pub unsafe extern "C" fn merge_locale_table_c(
     tables: *const *const LocaleTable,
     count: usize,
 ) -> MergeResult {
@@ -56,12 +56,12 @@ pub unsafe extern "C" fn merge_locale_table(
         };
     }
 
-    merge_locale_table_internal(unsafe {
+    merge_locale_table_rust(unsafe {
         std::slice::from_raw_parts(tables as *const &LocaleTable, count)
     })
 }
 
-pub fn merge_locale_table_internal(tables: &[&LocaleTable]) -> MergeResult {
+pub fn merge_locale_table_rust(tables: &[&LocaleTable]) -> MergeResult {
     let initial_hasher = |entry: &(TableEntry, &Box<[u8]>)| entry.0.key;
     let final_hasher = |entry: &TableEntry| entry.key;
     let mut initial_table: HashTable<(TableEntry, &Box<[u8]>)> = HashTable::new();
@@ -188,7 +188,7 @@ pub unsafe extern "C" fn get_multiple_locale_tables(
 
     // References to all tables for merging
     let references: Vec<&LocaleTable> = parsed_tables.iter().collect();
-    merge_locale_table_internal(&references)
+    merge_locale_table_rust(&references)
 }
 
 #[unsafe(no_mangle)]
