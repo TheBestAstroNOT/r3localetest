@@ -141,7 +141,7 @@ mod tests {
     fn test_invalid_utf8() {
         let sample = b"[[bad_key]]\n\xFF\xFE\xFD\n";
         let result = parse_r3locale_bytes(sample);
-        assert!(result.is_err());
+        assert!(matches!(result, Err(ParseR3Error::InvalidUTF8Value)));
     }
 
     #[test]
@@ -161,10 +161,8 @@ mod tests {
     #[test]
     fn test_duplicate_keys() {
         let sample = b"[[duplicate_key]]\nfirst_value\n[[duplicate_key]]\nsecond_value";
-        let table = parse_r3locale_bytes(sample).expect("Parse failed");
-        let val = table.find_entry(b"duplicate_key");
-        assert_eq!(val, Some("first_value"));
-        assert_eq!(table.entries.len(), 1);
+        let result = parse_r3locale_bytes(sample);
+        assert!(matches!(result, Err(ParseR3Error::DuplicateKeys)));
     }
 }
 

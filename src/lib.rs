@@ -1,3 +1,15 @@
 pub mod locale_api;
-pub use locale_api::interop;
-pub use locale_api::parser;
+pub use locale_api::interop::AllocationResult;
+pub use locale_api::interop::FindEntryError;
+pub use locale_api::interop::FindEntryResult;
+pub use locale_api::interop::LocaleTable;
+pub use locale_api::interop::TableEntry;
+pub use locale_api::interop::free_locale_table;
+pub use locale_api::interop::get_entry;
+pub use locale_api::interop::get_locale_table;
+pub use locale_api::interop::get_multiple_locale_tables;
+pub use locale_api::interop::merge_locale_table_c;
+pub use locale_api::parser::MergeResult;
+pub use locale_api::parser::MergeTableError;
+pub use locale_api::parser::ParseR3Error;
+pub use locale_api::parser::parse_r3locale_bytes;
