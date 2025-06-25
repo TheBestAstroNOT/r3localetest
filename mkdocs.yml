@@ -61,6 +61,7 @@ plugins:
 nav:
   - Home: index.md
   - Creating a LocaleTable: functions/get_locale_table.md
-  - Freeing a LocaleTable: functions/free_locale_table.md
+  - Merging existing LocaleTables: functions/merge_locale_table_c.md
   - Fetching a value from a LocaleTable: functions/get_entry.md
+  - Freeing a LocaleTable: functions/free_locale_table.md
   - Manually handling file parsing: functions/parse_r3locale_bytes.md

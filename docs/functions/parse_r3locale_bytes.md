@@ -26,3 +26,4 @@ match parse_r3locale_bytes(input) {
 | `ParseR3Error_InvalidUTF8Value` | A string value in the localisation file was not valid UTF-8.               |
 | `ParseR3Error_InvalidUTF8Path`  | The file path provided could not be parsed as valid UTF-8.                 |
 | `ParseR3Error_NullPathProvided` | The input path pointer was `NULL`.                                         |
+| `ParseR3Error::DuplicateKeys`   | A key is detected more than one time.                                      |

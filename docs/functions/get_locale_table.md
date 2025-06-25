@@ -97,3 +97,75 @@ It's fields are not accessible from C, but are used by the Rust implementation t
 | `ParseR3Error_InvalidUTF8Value` | A string value in the localisation file was not valid UTF-8.               |
 | `ParseR3Error_InvalidUTF8Path`  | The file path provided could not be parsed as valid UTF-8.                 |
 | `ParseR3Error_NullPathProvided` | The input path pointer was `NULL`.                                         |
+| `ParseR3Error::DuplicateKeys`   | A key is detected more than one time.                                      |
+
+## In case of multiple locale files
+You can call `get_multiple_locale_tables` which takes an array of locale table paths (earlier tables have priority) and the number of table paths. It returns a [MergeResult](merge_locale_table_c.md#mergeresult-struct).
+
+### Header File
+```c
+#ifndef R3LOCALE_GET_H
+#define R3LOCALE_GET_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <stddef.h> // for size_t
+
+typedef enum {
+    ParseR3Error_Normal,
+    ParseR3Error_FileNotFound,
+    ParseR3Error_FailedToRead,
+    ParseR3Error_KeyValueMismatch,
+    ParseR3Error_BracketMismatch,
+    ParseR3Error_InvalidUTF8Value,
+    ParseR3Error_InvalidUTF8Path,
+    ParseR3Error_NullPathProvided
+} ParseR3Error;
+
+typedef enum {
+    MergeTableError_Normal,
+    MergeTableError_NullTablePointer,
+    MergeTableError_FileNotFound,
+    MergeTableError_FailedToRead,
+    MergeTableError_KeyValueMismatch,
+    MergeTableError_BracketMismatch,
+    MergeTableError_InvalidUTF8Value,
+    MergeTableError_InvalidUTF8Path,
+    MergeTableError_NullPathProvided,
+    MergeTableError_DuplicateKeys
+} MergeTableError;
+
+typedef struct LocaleTable LocaleTable;
+
+typedef struct {
+    LocaleTable* table;
+    ParseR3Error allocation_state;
+} AllocationResult;
+
+typedef struct {
+    LocaleTable* table;
+    MergeTableError merge_state;
+} MergeResult;
+
+AllocationResult get_locale_table(const char* path);
+
+MergeResult get_multiple_locale_tables(const char* const* paths, size_t count);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+```
+
+### Main Function
+const char* locale_paths[] = {
+"example_path_1",
+"example_path_2"
+};
+
+const size_t LOCALE_COUNT = 2;
+
+MergeResult merged = get_multiple_locale_tables(locale_paths, LOCALE_COUNT);
