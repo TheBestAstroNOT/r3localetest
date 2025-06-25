@@ -63,4 +63,4 @@ nav:
   - Creating a LocaleTable: functions/get_locale_table.md
   - Freeing a LocaleTable: functions/free_locale_table.md
   - Fetching a value from a LocaleTable: functions/get_entry.md
-  - Manually handling parsing: functions/parse_r3locale_bytes.md
+  - Manually handling file parsing: functions/parse_r3locale_bytes.md
