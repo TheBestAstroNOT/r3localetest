@@ -161,6 +161,7 @@ MergeResult get_multiple_locale_tables(const char* const* paths, size_t count);
 ```
 
 ### Main Function
+```c
 const char* locale_paths[] = {
 "example_path_1",
 "example_path_2"
@@ -169,3 +170,4 @@ const char* locale_paths[] = {
 const size_t LOCALE_COUNT = 2;
 
 MergeResult merged = get_multiple_locale_tables(locale_paths, LOCALE_COUNT);
+```
