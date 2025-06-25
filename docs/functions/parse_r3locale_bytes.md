@@ -1,5 +1,5 @@
 ## Usage
-The `parse_r3locale_bytes` function is a rust only function and doesn't support C interop. It takes a sequence of bytes (&[u8]) of the file you want to parse (pre-sanitised) and returns a Result<LocaleTable, ParseR3Error>.
+The `parse_r3locale_bytes` function is a rust only function and doesn't support C interop. It takes a sequence of bytes `&[u8]` of the file you want to parse (must be pre-sanitised) and returns a Result<LocaleTable, ParseR3Error>.
 
 ### Main Function Usage
 
